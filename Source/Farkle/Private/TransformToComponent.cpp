@@ -11,8 +11,28 @@ UTransformToComponent::UTransformToComponent()
 	PrimaryComponentTick.bCanEverTick = true;
 
 	// ...
+	Duration = 1.0f;
+    ElapsedTime = 0.0f;
+    bInterpolatePosition = true;
+    bInterpolateRotation = true;
 }
 
+void UTransformToComponent::StartTransform(FVector NewTargetPosition, FRotator NewTargetRotation, float NewTransitionDuration)
+{
+	TargetPosition = NewTargetPosition;
+    TargetRotation = NewTargetRotation;
+    Duration = NewTransitionDuration;
+    ElapsedTime = 0.0f;
+    InitialPosition = GetOwner()->GetActorLocation();
+    InitialRotation = GetOwner()->GetActorRotation();
+
+    // Disable physics
+    Cast<UStaticMeshComponent>(GetOwner()->GetRootComponent())->SetSimulatePhysics(false);
+    // Disable collision
+    Cast<UStaticMeshComponent>(GetOwner()->GetRootComponent())->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+    SetComponentTickEnabled(true);
+}
 
 // Called when the game starts
 void UTransformToComponent::BeginPlay()
@@ -20,7 +40,10 @@ void UTransformToComponent::BeginPlay()
 	Super::BeginPlay();
 
 	// ...
-	
+	InitialPosition = GetOwner()->GetActorLocation();
+    InitialRotation = GetOwner()->GetActorRotation();
+
+	SetComponentTickEnabled(false);
 }
 
 
@@ -30,5 +53,29 @@ void UTransformToComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	// ...
+	ElapsedTime += DeltaTime;
+    float Alpha = FMath::Clamp(ElapsedTime / Duration, 0.0f, 1.0f);
+
+    if (bInterpolatePosition)
+    {
+        FVector NewPosition = FMath::Lerp(InitialPosition, TargetPosition, Alpha);
+        GetOwner()->SetActorLocation(NewPosition);
+    }
+
+    if (bInterpolateRotation)
+    {
+        FRotator NewRotation = FMath::Lerp(InitialRotation, TargetRotation, Alpha);
+        GetOwner()->SetActorRotation(NewRotation);
+    }
+
+    if (Alpha >= 1.0f)
+    {
+        SetComponentTickEnabled(false);
+        // Enable physics
+        Cast<UStaticMeshComponent>(GetOwner()->GetRootComponent())->SetSimulatePhysics(true);
+        // Enable collision
+        Cast<UStaticMeshComponent>(GetOwner()->GetRootComponent())->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+    }
+
 }
 

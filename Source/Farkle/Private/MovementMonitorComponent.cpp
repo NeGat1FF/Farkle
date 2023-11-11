@@ -11,24 +11,64 @@ UMovementMonitorComponent::UMovementMonitorComponent()
 	PrimaryComponentTick.bCanEverTick = true;
 
 	// ...
+	bIsTracking = false;
 }
 
+void UMovementMonitorComponent::AddActorToTrack(AActor *ActorToAdd)
+{
+	if(ActorToAdd)
+	{
+		ActorsToTrack.Add(ActorToAdd);
+	}
+}
+
+void UMovementMonitorComponent::RemoveActorToTrack(AActor *ActorToRemove)
+{
+	if(ActorToRemove)
+	{
+		ActorsToTrack.Remove(ActorToRemove);
+	}
+}
+
+void UMovementMonitorComponent::StartTracking()
+{
+	bIsTracking = true;
+	SetComponentTickEnabled(true);
+}
 
 // Called when the game starts
 void UMovementMonitorComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// ...
-	
+	SetComponentTickEnabled(false);
 }
 
-
 // Called every frame
-void UMovementMonitorComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+void UMovementMonitorComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	// ...
-}
+	if (bIsTracking)
+	{
+		bool isAllStopped = true;
+		for (AActor *ActorToTrack : ActorsToTrack)
+		{
+			int32 ActorLocation = ActorToTrack->GetVelocity().Size();
+			if (ActorLocation > 0)
+			{
+				isAllStopped = false;
+				break;
+			}
+		}
 
+		if (isAllStopped)
+		{
+			bIsTracking = false;
+			OnAllActorsStopped.Broadcast();
+			ActorsToTrack.Empty();
+			SetComponentTickEnabled(false);
+		}
+	}
+}

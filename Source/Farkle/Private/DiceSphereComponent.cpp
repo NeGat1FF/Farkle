@@ -3,3 +3,13 @@
 
 #include "DiceSphereComponent.h"
 
+int32 UDiceSphereComponent::GetValue() const
+{
+    return Value;
+}
+
+void UDiceSphereComponent::SetValue(int32 NewValue)
+{
+    Value = NewValue;
+}
+

@@ -13,5 +13,15 @@ UCLASS()
 class FARKLE_API UMyButton : public UButton
 {
 	GENERATED_BODY()
+
+public:
+	UMyButton(const FObjectInitializer& ObjectInitializer);
+
+private:
+    UFUNCTION()
+	void OnHoveredFunc();
+
+	UFUNCTION()
+	void OnUnhoveredFunc();
 	
 };
