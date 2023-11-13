@@ -9,16 +9,26 @@
 
 class ADiceActor;
 class USphereComponent;
-class AFarklePlayerState;
+class AFarklePlayState;
 class USpringArmComponent;
 class UTextRenderComponent;
 class UStaticMeshComponent;
 class UMovementMonitorComponent;
 class AController;
 
-//Declare delegate for end turn with no parameters
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnStartTurn);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnEndTurn);
 
+UENUM(BlueprintType)
+enum class EPlayState : uint8
+{
+	EPS_WaitingForThrow		UMETA(DisplayName = "Waiting for throw"),
+	EPS_Rolling				UMETA(DisplayName = "Rolling"),
+	EPS_Selecting			UMETA(DisplayName = "Selecting"),
+	EPS_Selected			UMETA(DisplayName = "Selected"),
+	EPS_WaitingForOpponent	UMETA(DisplayName = "Waiting for opponent"),
+	EPS_GameOver			UMETA(DisplayName = "Game over")
+};
 
 UCLASS()
 class FARKLE_API ABaseBoardPawn : public APawn
@@ -31,6 +41,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BoardPawn")
 	bool bIsAI;
+
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = "BoardPawn")
+	bool bIsMyTurn;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Components)
 	UStaticMeshComponent *BoardMesh;
@@ -47,7 +60,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Components)
 	TSubclassOf<ADiceActor> BP_DiceActor;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Components)
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Components)
 	TArray<ADiceActor *> DiceArray;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Texts")
@@ -59,49 +72,72 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Texts")
 	UTextRenderComponent *SelectedScoreText;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlayerState")
-	AFarklePlayerState *FarklePlayerState;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BoardPawn")
 	FVector ThrowDirection;
 
 	UPROPERTY(BlueprintAssignable, Category = "Board Events")
 	FOnEndTurn OnEndTurn;
 
-	UFUNCTION(BlueprintImplementableEvent)
+	UPROPERTY(BlueprintAssignable, Category = "Board Events")
+	FOnStartTurn OnStartTurn;
+
+	UFUNCTION(BlueprintCallable, Category = "PlayState")
+	void SetPlayState(EPlayState NewPlayState);
+
+	UFUNCTION(BlueprintCallable, Category = "PlayState")
+	EPlayState GetPlayState() const;
+
+	UFUNCTION(BlueprintGetter, Category = "Score")
+	int32 GetTotalScore() const;
+
+	UFUNCTION(BlueprintGetter, Category = "Score")
+	int32 GetTurnScore() const;
+
+	UFUNCTION(BlueprintGetter, Category = "Score")
+	int32 GetSelectedScore() const;
+
+	UFUNCTION(BlueprintCallable)
 	void StartTurn();
 
 	UFUNCTION(BlueprintCallable)
 	void EndTurn();
 
 	UFUNCTION(BlueprintCallable)
-	void SpawnDices();
+	void SpawnDices(int32 PlayerId);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSpawnDices(int32 PlayerId);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerStartTurn();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerEndTurn();
 
 	UFUNCTION(Client, Reliable)
+	void ClientStartTurn();
+
+	UFUNCTION(Client, Reliable)
 	void ClientEndTurn();
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerThrowDices(const TArray<ADiceActor*> &Dices, const TArray<USphereComponent*> &ThrowFrom);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerSpawnDices();
-
-protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
-
-	virtual void PossessedBy(AController *NewController) override;
+	void ServerThrowDices(const TArray<ADiceActor*> &Dices);
 
 public:
+
+	UFUNCTION()
+	void UpdateTexts();
 
 	UFUNCTION(BlueprintCallable, Category = "BoardPawn")
 	void RollDice();
 
 	UFUNCTION(BlueprintCallable, Category = "BoardPawn")
 	void PassDice();
+
+	UFUNCTION(Server, Reliable)
+	void ServerPassDice();
+
+	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const override;
 
 private:
 	UFUNCTION()
@@ -114,20 +150,30 @@ private:
 	void DeselectAllDices();
 
 	UFUNCTION()
-	void ThrowDices(TArray<ADiceActor*> Dices, TArray<USphereComponent*> &ThrowFrom);
+	void ThrowDices(TArray<ADiceActor*> Dices);
 
 	UFUNCTION()
 	void HoldDices(TArray<ADiceActor*> Dices, TArray<USphereComponent*> &HoldTo, int32 Index);
 
-	UFUNCTION()
-	void UpdateTexts();
-
 	UFUNCTION(BlueprintCallable, Category = "BoardPawn", meta = (AllowPrivateAccess = "true"))
 	TArray<ADiceActor*> GetNotSelectedDices();
 
-	UPROPERTY(BlueprintReadOnly, Category = "BoardPawn", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "BoardPawn", meta = (AllowPrivateAccess = "true"))
 	TArray<ADiceActor*> SelectedDices;
 
-	UPROPERTY(BlueprintReadOnly, Category = "BoardPawn", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "BoardPawn", meta = (AllowPrivateAccess = "true"))
 	TArray<ADiceActor*> OnHolderDices;
+
+	UPROPERTY(ReplicatedUsing = UpdateTexts, BlueprintGetter = GetTotalScore, Category = "Score")
+	int32 TotalScore;
+
+	UPROPERTY(ReplicatedUsing = UpdateTexts, BlueprintGetter = GetTurnScore, Category = "Score")
+	int32 TurnScore;
+
+	UPROPERTY(ReplicatedUsing = UpdateTexts, BlueprintGetter = GetSelectedScore, Category = "Score")
+	int32 SelectedScore;
+
+	UPROPERTY(Replicated)
+	EPlayState PlayState;
+
 };

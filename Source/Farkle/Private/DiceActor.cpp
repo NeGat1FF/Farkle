@@ -2,8 +2,10 @@
 
 
 #include "DiceActor.h"
+#include "Net/UnrealNetwork.h"
 #include "DiceSphereComponent.h"
 #include "TransformToComponent.h"
+#include "Logging/StructuredLog.h"
 #include "Components/AudioComponent.h"
 #include "Components/StaticMeshComponent.h"
 
@@ -56,6 +58,14 @@ ADiceActor::ADiceActor()
 void ADiceActor::BeginPlay()
 {
 	Super::BeginPlay();
+}
+
+void ADiceActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ADiceActor, bIsSelected);
+	DOREPLIFETIME(ADiceActor, bIsOnHold);
 }
 
 void ADiceActor::NotifyActorBeginOverlap(AActor *OtherActor)
@@ -116,6 +126,7 @@ void ADiceActor::Deselect(bool shouldPlaySound)
 
 void ADiceActor::OnClick(AActor* actor, FKey Key)
 {
+	UE_LOGFMT(LogTemp, Warning, "Owner of {0} is {1}", *GetNameSafe(this), *GetNameSafe(GetOwner()));
 	double Velocity = GetVelocity().Size();
 	// If dice is not rolling and is not on hold
 	if(Velocity < 1 && !bIsOnHold)
@@ -146,10 +157,21 @@ void ADiceActor::PlayRollingSound()
 
 void ADiceActor::SetSelected(bool NewIsSelected)
 {
-	bIsSelected = NewIsSelected;
-	DiceMesh->SetRenderCustomDepth(bIsSelected);
+	if(GetLocalRole() < ROLE_Authority){
+		ServerSetSelected(NewIsSelected);
+		return;
+	}
+	MulticastSetSelected(NewIsSelected);
+}
 
-	// Call your multicast delegate
+void ADiceActor::ServerSetSelected_Implementation(bool NewIsSelected){
+	SetSelected(NewIsSelected);
+}
+
+void ADiceActor::MulticastSetSelected_Implementation(bool NewIsSelected)
+{
+	bIsSelected = NewIsSelected;
+	DiceMesh->SetRenderCustomDepth(NewIsSelected);
 	OnDiceSelected.Broadcast(this);
 }
 

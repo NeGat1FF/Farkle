@@ -4,10 +4,11 @@
 
 #include "DiceActor.h"
 #include "TimerManager.h"
+#include "Net/UnrealNetwork.h"
 #include "Algo/RandomShuffle.h"
-#include "FarklePlayerState.h"
 #include "Logging/StructuredLog.h"
 #include "MovementMonitorComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "Components/AudioComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/TextRenderComponent.h"
@@ -56,64 +57,30 @@ ABaseBoardPawn::ABaseBoardPawn()
 	MovementMonitor->OnAllActorsStopped.AddDynamic(this, &ABaseBoardPawn::OnAllActorsStopped);
 
 	bIsAI = false;
-}
+	bIsMyTurn = false;
 
-// Called when the game starts or when spawned
-void ABaseBoardPawn::BeginPlay()
-{
-	Super::BeginPlay();
-}
-
-void ABaseBoardPawn::PossessedBy(AController *NewController)
-{
-	Super::PossessedBy(NewController);
-
-	// Get player state
-	FarklePlayerState = Cast<AFarklePlayerState>(GetPlayerState());
-
-	if (!FarklePlayerState)
-	{
-		UE_LOG(LogTemp, Error, TEXT("ABoardPawn::BeginPlay: PlayerState is not an AFarklePlayerState"));
-		return;
-	}
-	UE_LOGFMT(LogTemp, Warning, "{0}: BoardPawn Possessed", GetPlayerState()->GetPlayerName());
+	PlayState = EPlayState::EPS_WaitingForOpponent;
 }
 
 void ABaseBoardPawn::RollDice()
 {
-	if (!FarklePlayerState)
+	if (PlayState == EPlayState::EPS_WaitingForThrow)
 	{
-		FarklePlayerState = Cast<AFarklePlayerState>(GetPlayerState());
-
-		if (!FarklePlayerState)
-		{
-			UE_LOGFMT(LogTemp, Error, "{0}: PlayerState is not an AFarklePlayerState", GetPlayerState()->GetPlayerName());
-		}
-	}
-
-	if (!FarklePlayerState->bIsMyTurn)
-	{
-		UE_LOGFMT(LogTemp, Warning, "{0}: Not my turn", GetPlayerState()->GetPlayerName());
-		return;
-	}
-	EPlayerState CurrentPlayerState = FarklePlayerState->GetPlayerState();
-
-	if (CurrentPlayerState == EPlayerState::EPS_WaitingForThrow)
-	{
-		ServerThrowDices(DiceArray, ThrowPositions);
+		ServerThrowDices(DiceArray);
 		// Set the player state to rolling
 	}
-	else if (CurrentPlayerState == EPlayerState::EPS_Selected)
+	else if (PlayState == EPlayState::EPS_Selected)
 	{
 		if (SelectedDices.Num() > 0)
 		{
-			if (FarklePlayerState->SelectedScore != 0)
+			if (SelectedScore != 0)
 			{
-				FarklePlayerState->AddTurnScore();
+				TurnScore += SelectedScore;
+				SelectedScore = 0;
 
 				if (SelectedDices.Num() == 6 || SelectedDices.Num() + OnHolderDices.Num() == 6)
 				{
-					ServerThrowDices(DiceArray, ThrowPositions);
+					ServerThrowDices(DiceArray);
 				}
 				else
 				{
@@ -126,39 +93,61 @@ void ABaseBoardPawn::RollDice()
 					// Timer delegate
 					FTimerDelegate TimerDelegate;
 					// Bind the timer delegate to the function
-					TimerDelegate.BindUFunction(this, FName("ServerThrowDices"), NotSelectedDices, ThrowPositions);
+					TimerDelegate.BindUFunction(this, FName("ServerThrowDices"), NotSelectedDices);
 					// Set the timer
 					GetWorld()->GetTimerManager().SetTimer(TimerHandle, TimerDelegate, 1.0f, false);
 				}
 			}
-			else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("ABoardPawn::RollDice: Selected wrong combination"));
-			}
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("ABoardPawn::RollDice: No dices selected"));
 		}
 		DeselectAllDices();
 	}
+
+	// Update the texts
 	UpdateTexts();
 }
 
 void ABaseBoardPawn::PassDice()
 {
-	if (!FarklePlayerState->bIsMyTurn)
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		ServerPassDice();
+		return;
+	}
+	if (!bIsMyTurn)
 	{
 		return;
 	}
-	if (SelectedDices.Num() != 0 && FarklePlayerState->SelectedScore != 0)
+	if (SelectedDices.Num() != 0 && SelectedScore != 0)
 	{
 		EndTurn();
 	}
 }
 
+void ABaseBoardPawn::ServerPassDice_Implementation()
+{
+	PassDice();
+}
+
+void ABaseBoardPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ABaseBoardPawn, TotalScore);
+	DOREPLIFETIME(ABaseBoardPawn, TurnScore);
+	DOREPLIFETIME(ABaseBoardPawn, SelectedScore);
+
+	DOREPLIFETIME(ABaseBoardPawn, bIsMyTurn);
+	DOREPLIFETIME(ABaseBoardPawn, PlayState);
+
+	DOREPLIFETIME(ABaseBoardPawn, DiceArray);
+	DOREPLIFETIME(ABaseBoardPawn, OnHolderDices);
+	DOREPLIFETIME(ABaseBoardPawn, SelectedDices);
+}
+
 void ABaseBoardPawn::OnDiceSelected(ADiceActor *DiceActor)
 {
+	UE_LOGFMT(LogTemp, Warning, "ABaseBoardPawn::OnDiceSelected  LOCAL ROLE{0}", GetLocalRole());
+
 	if (DiceActor->bIsSelected)
 	{
 		SelectedDices.Add(DiceActor);
@@ -170,14 +159,14 @@ void ABaseBoardPawn::OnDiceSelected(ADiceActor *DiceActor)
 
 	int32 Score = UFarkleUtils::CountScore(SelectedDices);
 
-	FarklePlayerState->UpdateSelectedScore(Score);
+	SelectedScore = Score;
 	if (Score)
 	{
-		FarklePlayerState->SetPlayerState(EPlayerState::EPS_Selected);
+		PlayState = EPlayState::EPS_Selected;
 	}
 	else
 	{
-		FarklePlayerState->SetPlayerState(EPlayerState::EPS_Selecting);
+		PlayState = EPlayState::EPS_Selecting;
 	}
 
 	UpdateTexts();
@@ -191,11 +180,12 @@ void ABaseBoardPawn::OnAllActorsStopped()
 	}
 	if (UFarkleUtils::CanScore(GetNotSelectedDices()))
 	{
-		FarklePlayerState->SetPlayerState(EPlayerState::EPS_Selecting);
+		PlayState = EPlayState::EPS_Selecting;
 	}
 	else
 	{
-		FarklePlayerState->TurnScore = 0;
+		TurnScore = 0;
+		SelectedScore = 0;
 		EndTurn();
 	}
 }
@@ -211,9 +201,9 @@ void ABaseBoardPawn::DeselectAllDices()
 	}
 }
 
-void ABaseBoardPawn::ThrowDices(TArray<ADiceActor *> Dices, TArray<USphereComponent *> &ThrowFrom)
+void ABaseBoardPawn::ThrowDices(TArray<ADiceActor *> Dices)
 {
-	FarklePlayerState->SetPlayerState(EPlayerState::EPS_Rolling);
+	PlayState = EPlayState::EPS_Rolling;
 
 	for (int i = 0; i < Dices.Num(); i++)
 	{
@@ -224,7 +214,7 @@ void ABaseBoardPawn::ThrowDices(TArray<ADiceActor *> Dices, TArray<USphereCompon
 		DiceActor->bIsOnHold = false;
 
 		// Move the dice to the throw position
-		DiceActor->SetActorLocation(ThrowFrom[i]->GetComponentLocation());
+		DiceActor->SetActorLocation(ThrowPositions[i]->GetComponentLocation());
 
 		// Enable physics
 		DiceMesh->SetSimulatePhysics(true);
@@ -249,8 +239,7 @@ void ABaseBoardPawn::ThrowDices(TArray<ADiceActor *> Dices, TArray<USphereCompon
 
 	GetWorldTimerManager().SetTimer(TimerHandle, TimerDelegate, 0.2f, false);
 
-	// Shuffle ThrowFrom array
-	Algo::RandomShuffle(ThrowFrom);
+	Algo::RandomShuffle(ThrowPositions);
 }
 
 void ABaseBoardPawn::HoldDices(TArray<ADiceActor *> Dices, TArray<USphereComponent *> &HoldTo, int32 Index)
@@ -274,16 +263,41 @@ void ABaseBoardPawn::HoldDices(TArray<ADiceActor *> Dices, TArray<USphereCompone
 void ABaseBoardPawn::UpdateTexts()
 {
 	// Update the score text
-	ScoreText->SetText(FText::FromString(FString("Score:").Append(FString::FromInt(FarklePlayerState->GetScore()))));
+	ScoreText->SetText(FText::FromString(FString::Printf(TEXT("Score:%d"), TotalScore)));
 
 	// Update the turn score text
-	TurnScoreText->SetText(FText::FromString(FString::Printf(TEXT("Turn Score:%d"), FarklePlayerState->TurnScore)));
+	TurnScoreText->SetText(FText::FromString(FString::Printf(TEXT("Turn Score:%d"), TurnScore)));
 
 	// Update the selected score text
-	SelectedScoreText->SetText(FText::FromString(FString::Printf(TEXT("Selected Score:%d"), FarklePlayerState->SelectedScore)));
+	SelectedScoreText->SetText(FText::FromString(FString::Printf(TEXT("Selected Score:%d"), SelectedScore)));
 }
 
-void ABaseBoardPawn::EndTurn()
+void ABaseBoardPawn::SetPlayState(EPlayState NewPlayState)
+{
+	PlayState = NewPlayState;
+}
+
+EPlayState ABaseBoardPawn::GetPlayState() const
+{
+	return PlayState;
+}
+
+int32 ABaseBoardPawn::GetTotalScore() const
+{
+	return TotalScore;
+}
+
+int32 ABaseBoardPawn::GetTurnScore() const
+{
+	return TurnScore;
+}
+
+int32 ABaseBoardPawn::GetSelectedScore() const
+{
+	return SelectedScore;
+}
+
+void ABaseBoardPawn::StartTurn()
 {
 	if (GetLocalRole() < ROLE_Authority)
 	{
@@ -291,19 +305,86 @@ void ABaseBoardPawn::EndTurn()
 	}
 	else
 	{
-		// Server-side logic
-		FarklePlayerState->EndTurn();
-		HoldDices(DiceArray, HolderPositions, 0);
-		UpdateTexts();
+		bIsMyTurn = true;
+		PlayState = EPlayState::EPS_WaitingForThrow;
 
 		// Inform the client that the turn has ended
-		ClientEndTurn();
+		ClientStartTurn();
 	}
 }
 
-void ABaseBoardPawn::SpawnDices()
+void ABaseBoardPawn::ServerStartTurn_Implementation()
 {
-	ServerSpawnDices();
+	// Perform the end turn actions on the server
+	StartTurn();
+}
+
+bool ABaseBoardPawn::ServerStartTurn_Validate()
+{
+	// Perform any necessary validation here
+	return true;
+}
+
+void ABaseBoardPawn::ClientStartTurn_Implementation()
+{
+	// This will be executed on the client only
+	UE_LOG(LogTemp, Warning, TEXT("ABaseBoardPawn::StartTurn: Client"));
+	OnStartTurn.Broadcast();
+}
+
+void ABaseBoardPawn::EndTurn()
+{
+	UE_LOG(LogTemp, Warning, TEXT("ABaseBoardPawn::EndTurn"));
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		ServerEndTurn();
+		return;
+	}
+	bIsMyTurn = false;
+	PlayState = EPlayState::EPS_WaitingForOpponent;
+
+	TotalScore += TurnScore + SelectedScore;
+
+	TurnScore = SelectedScore = 0;
+
+	HoldDices(DiceArray, HolderPositions, 0);
+
+	// Inform the client that the turn has ended
+	ClientEndTurn();
+
+	OnEndTurn.Broadcast();
+}
+
+void ABaseBoardPawn::SpawnDices(int32 PlayerId)
+{
+	ServerSpawnDices(PlayerId);
+}
+
+
+void ABaseBoardPawn::ServerSpawnDices_Implementation(int32 PlayerId)
+{
+	for (int i = 0; i < 6; i++)
+	{
+		ADiceActor *Dice = GetWorld()->SpawnActor<ADiceActor>(BP_DiceActor, HolderPositions[i]->GetComponentLocation(), FRotator::ZeroRotator);
+		Dice->SetOwner(UGameplayStatics::GetPlayerController(GetWorld(), PlayerId));
+		Dice->OnDiceSelected.AddDynamic(this, &ABaseBoardPawn::OnDiceSelected);
+		DiceArray.Add(Dice);
+	}
+
+	OnHolderDices = DiceArray;
+
+	// Calculate the direction vector
+	ThrowDirection = (HolderPositions[0]->GetComponentLocation() - ThrowPositions[0]->GetComponentLocation()).GetSafeNormal();
+	ThrowDirection.Z = 0.0f;
+
+	// round the numbers to 1 or -1
+	ThrowDirection.X = FMath::RoundToInt(ThrowDirection.X);
+	ThrowDirection.Y = FMath::RoundToInt(ThrowDirection.Y);
+}
+
+bool ABaseBoardPawn::ServerSpawnDices_Validate(int32 PlayerId)
+{
+	return true;
 }
 
 void ABaseBoardPawn::ServerEndTurn_Implementation()
@@ -322,40 +403,16 @@ void ABaseBoardPawn::ClientEndTurn_Implementation()
 {
 	// This will be executed on the client only
 	UE_LOG(LogTemp, Warning, TEXT("ABaseBoardPawn::EndTurn: Client"));
+	UpdateTexts();
 	OnEndTurn.Broadcast();
 }
 
-void ABaseBoardPawn::ServerThrowDices_Implementation(const TArray<ADiceActor *> &Dices, const TArray<USphereComponent *> &ThrowFrom)
+void ABaseBoardPawn::ServerThrowDices_Implementation(const TArray<ADiceActor *> &Dices)
 {
-	ThrowDices(DiceArray, ThrowPositions);
+	ThrowDices(Dices);
 }
 
-bool ABaseBoardPawn::ServerThrowDices_Validate(const TArray<ADiceActor *> &Dices, const TArray<USphereComponent *> &ThrowFrom)
-{
-	return true;
-}
-
-void ABaseBoardPawn::ServerSpawnDices_Implementation()
-{
-	for (int i = 0; i < 6; i++)
-	{
-		ADiceActor *Dice = GetWorld()->SpawnActor<ADiceActor>(BP_DiceActor, HolderPositions[i]->GetComponentLocation(), FRotator::ZeroRotator);
-		Dice->OnDiceSelected.AddDynamic(this, &ABaseBoardPawn::OnDiceSelected);
-		DiceArray.Add(Dice);
-	}
-
-	OnHolderDices = DiceArray;
-
-	// Calculate the direction vector
-	ThrowDirection = (HolderPositions[0]->GetComponentLocation() - ThrowPositions[0]->GetComponentLocation()).GetSafeNormal();
-	ThrowDirection.Z = 0.0f;
-
-	// round the numbers to 1 or -1
-	ThrowDirection.X = FMath::RoundToInt(ThrowDirection.X);
-	ThrowDirection.Y = FMath::RoundToInt(ThrowDirection.Y);
-}
-
-bool ABaseBoardPawn::ServerSpawnDices_Validate()
+bool ABaseBoardPawn::ServerThrowDices_Validate(const TArray<ADiceActor *> &Dices)
 {
 	return true;
 }

@@ -43,15 +43,17 @@ public:
     UPROPERTY(BlueprintAssignable, Category = "Dice Events")
     FOnDiceSelected OnDiceSelected;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Dice")
+	UPROPERTY(Replicated, BlueprintReadWrite, EditAnywhere, Category = "Dice")
 	bool bIsSelected;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Dice")
+	UPROPERTY(Replicated, BlueprintReadWrite, EditAnywhere, Category = "Dice")
 	bool bIsOnHold;
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
 
@@ -93,6 +95,12 @@ private:
 
 	UFUNCTION()
 	void SetSelected(bool NewIsSelected);
+
+	UFUNCTION(Server, Reliable)
+	void ServerSetSelected(bool NewIsSelected);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastSetSelected(bool NewIsSelected);
 
 	UFUNCTION()
 	void UpdateValue(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
