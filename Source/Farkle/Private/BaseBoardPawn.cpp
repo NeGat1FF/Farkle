@@ -242,8 +242,13 @@ void ABaseBoardPawn::ThrowDices(TArray<ADiceActor *> Dices)
 	Algo::RandomShuffle(ThrowPositions);
 }
 
-void ABaseBoardPawn::HoldDices(TArray<ADiceActor *> Dices, TArray<USphereComponent *> &HoldTo, int32 Index)
+void ABaseBoardPawn::HoldDices(const TArray<ADiceActor *>& Dices,const TArray<USphereComponent *> &HoldTo, int32 Index)
 {
+	if(GetLocalRole() < ROLE_Authority){
+		ServerHoldDices(Dices, HoldTo, Index);
+		return;
+	}
+
 	for (int i = 0; i < Dices.Num(); i++)
 	{
 		ADiceActor *DiceActor = Dices[i];
@@ -258,6 +263,11 @@ void ABaseBoardPawn::HoldDices(TArray<ADiceActor *> Dices, TArray<USphereCompone
 	}
 
 	DeselectAllDices();
+}
+
+void ABaseBoardPawn::ServerHoldDices_Implementation(const TArray<ADiceActor *> &Dices, const TArray<USphereComponent *> &HoldTo, int32 Index)
+{
+	HoldDices(Dices, HoldTo, Index);
 }
 
 void ABaseBoardPawn::UpdateTexts()
@@ -357,7 +367,25 @@ void ABaseBoardPawn::EndTurn()
 
 void ABaseBoardPawn::SpawnDices(int32 PlayerId)
 {
-	ServerSpawnDices(PlayerId);
+	//ServerSpawnDices(PlayerId);
+
+	for (int i = 0; i < 6; i++)
+	{
+		ADiceActor *Dice = GetWorld()->SpawnActor<ADiceActor>(BP_DiceActor, HolderPositions[i]->GetComponentLocation(), FRotator::ZeroRotator);
+		Dice->SetOwner(UGameplayStatics::GetPlayerController(GetWorld(), PlayerId));
+		Dice->OnDiceSelected.AddDynamic(this, &ABaseBoardPawn::OnDiceSelected);
+		DiceArray.Add(Dice);
+	}
+
+	OnHolderDices = DiceArray;
+
+	// Calculate the direction vector
+	ThrowDirection = (HolderPositions[0]->GetComponentLocation() - ThrowPositions[0]->GetComponentLocation()).GetSafeNormal();
+	ThrowDirection.Z = 0.0f;
+
+	// round the numbers to 1 or -1
+	ThrowDirection.X = FMath::RoundToInt(ThrowDirection.X);
+	ThrowDirection.Y = FMath::RoundToInt(ThrowDirection.Y);
 }
 
 

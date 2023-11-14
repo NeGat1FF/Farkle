@@ -153,7 +153,10 @@ private:
 	void ThrowDices(TArray<ADiceActor*> Dices);
 
 	UFUNCTION()
-	void HoldDices(TArray<ADiceActor*> Dices, TArray<USphereComponent*> &HoldTo, int32 Index);
+	void HoldDices(const TArray<ADiceActor*>& Dices,const TArray<USphereComponent*> &HoldTo, int32 Index);
+
+	UFUNCTION(Server, Reliable)
+	void ServerHoldDices(const TArray<ADiceActor*>& Dices,const TArray<USphereComponent*>& HoldTo, int32 Index);
 
 	UFUNCTION(BlueprintCallable, Category = "BoardPawn", meta = (AllowPrivateAccess = "true"))
 	TArray<ADiceActor*> GetNotSelectedDices();
