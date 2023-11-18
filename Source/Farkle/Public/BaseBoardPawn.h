@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
-#include <map>
 #include "BaseBoardPawn.generated.h"
 
 class ADiceActor;
@@ -42,7 +41,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BoardPawn")
 	bool bIsAI;
 
-	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = "BoardPawn")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BoardPawn")
 	bool bIsMyTurn;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Components)
@@ -90,11 +89,20 @@ public:
 	UFUNCTION(BlueprintGetter, Category = "Score")
 	int32 GetTotalScore() const;
 
+	UFUNCTION(BlueprintSetter, Category = "Score")
+	void SetTotalScore(int32 Score);
+
 	UFUNCTION(BlueprintGetter, Category = "Score")
 	int32 GetTurnScore() const;
 
+	UFUNCTION(BlueprintSetter, Category = "Score")
+	void SetTurnScore(int32 Score);
+
 	UFUNCTION(BlueprintGetter, Category = "Score")
 	int32 GetSelectedScore() const;
+
+	UFUNCTION(BlueprintSetter, Category = "Score")
+	void SetSelectedScore(int32 Score);
 
 	UFUNCTION(BlueprintCallable)
 	void StartTurn();
@@ -103,16 +111,25 @@ public:
 	void EndTurn();
 
 	UFUNCTION(BlueprintCallable)
-	void SpawnDices(int32 PlayerId);
+	void SpawnDices();
 
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerSpawnDices(int32 PlayerId);
+public:
 
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerStartTurn();
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "BoardPawn")
+	void RollDice();
 
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerEndTurn();
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "BoardPawn")
+	void PassDice();
+
+protected:
+    void BeginPlay() override;
+	virtual void PossessedBy(AController* NewController) override;
+	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const override;
+
+private:
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastSetActorLocation(ADiceActor* Dice, FVector NewLocation);
 
 	UFUNCTION(Client, Reliable)
 	void ClientStartTurn();
@@ -120,26 +137,9 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientEndTurn();
 
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerThrowDices(const TArray<ADiceActor*> &Dices);
-
-public:
-
 	UFUNCTION()
 	void UpdateTexts();
 
-	UFUNCTION(BlueprintCallable, Category = "BoardPawn")
-	void RollDice();
-
-	UFUNCTION(BlueprintCallable, Category = "BoardPawn")
-	void PassDice();
-
-	UFUNCTION(Server, Reliable)
-	void ServerPassDice();
-
-	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const override;
-
-private:
 	UFUNCTION()
 	void OnDiceSelected(ADiceActor* DiceActor);
 
@@ -155,9 +155,6 @@ private:
 	UFUNCTION()
 	void HoldDices(const TArray<ADiceActor*>& Dices,const TArray<USphereComponent*> &HoldTo, int32 Index);
 
-	UFUNCTION(Server, Reliable)
-	void ServerHoldDices(const TArray<ADiceActor*>& Dices,const TArray<USphereComponent*>& HoldTo, int32 Index);
-
 	UFUNCTION(BlueprintCallable, Category = "BoardPawn", meta = (AllowPrivateAccess = "true"))
 	TArray<ADiceActor*> GetNotSelectedDices();
 
@@ -167,16 +164,16 @@ private:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "BoardPawn", meta = (AllowPrivateAccess = "true"))
 	TArray<ADiceActor*> OnHolderDices;
 
-	UPROPERTY(ReplicatedUsing = UpdateTexts, BlueprintGetter = GetTotalScore, Category = "Score")
+	UPROPERTY(ReplicatedUsing = UpdateTexts, BlueprintSetter = SetTotalScore, BlueprintGetter = GetTotalScore, Category = "Score")
 	int32 TotalScore;
 
-	UPROPERTY(ReplicatedUsing = UpdateTexts, BlueprintGetter = GetTurnScore, Category = "Score")
+	UPROPERTY(ReplicatedUsing = UpdateTexts, BlueprintSetter = SetTurnScore, BlueprintGetter = GetTurnScore, Category = "Score")
 	int32 TurnScore;
 
-	UPROPERTY(ReplicatedUsing = UpdateTexts, BlueprintGetter = GetSelectedScore, Category = "Score")
+	UPROPERTY(ReplicatedUsing = UpdateTexts, BlueprintSetter = SetSelectedScore, BlueprintGetter = GetSelectedScore, Category = "Score")
 	int32 SelectedScore;
 
-	UPROPERTY(Replicated)
+	UPROPERTY()
 	EPlayState PlayState;
 
 };

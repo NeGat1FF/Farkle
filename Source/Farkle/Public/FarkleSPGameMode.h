@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "FarkleGameMode.h"
-#include "FarkleMPGameMode.generated.h"
+#include "FarkleSPGameMode.generated.h"
 
 class ABaseBoardPawn;
 
@@ -12,7 +12,7 @@ class ABaseBoardPawn;
  * 
  */
 UCLASS()
-class FARKLE_API AFarkleMPGameMode : public AFarkleGameMode
+class FARKLE_API AFakrleSPGameMode : public AFarkleGameMode
 {
 	GENERATED_BODY()
 

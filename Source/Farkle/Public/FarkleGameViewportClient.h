@@ -13,5 +13,8 @@ UCLASS()
 class FARKLE_API UFarkleGameViewportClient : public UGameViewportClient
 {
 	GENERATED_BODY()
+
+public:
+	virtual bool InputKey(const FInputKeyEventArgs& EventArgs) override;
 	
 };

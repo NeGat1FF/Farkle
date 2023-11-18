@@ -3,15 +3,23 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/GameModeBase.h"
+#include "FarkleGameMode.h"
 #include "FarkleLocalMPGameMode.generated.h"
+
+class ABaseBoardPawn;
 
 /**
  * 
  */
 UCLASS()
-class FARKLE_API AFarkleLocalMPGameMode : public AGameModeBase
+class FARKLE_API AFarkleLocalMPGameMode : public AFarkleGameMode
 {
 	GENERATED_BODY()
 	
+protected:
+	virtual void PostLogin(APlayerController* NewPlayer) override;
+
+	virtual void OnFirstPlayerEndTurn() override;
+
+	virtual void OnSecondPlayerEndTurn() override;
 };

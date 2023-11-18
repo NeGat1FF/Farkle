@@ -5,7 +5,6 @@
 #include "Net/UnrealNetwork.h"
 #include "DiceSphereComponent.h"
 #include "TransformToComponent.h"
-#include "Logging/StructuredLog.h"
 #include "Components/AudioComponent.h"
 #include "Components/StaticMeshComponent.h"
 
@@ -126,7 +125,6 @@ void ADiceActor::Deselect(bool shouldPlaySound)
 
 void ADiceActor::OnClick(AActor* actor, FKey Key)
 {
-	UE_LOGFMT(LogTemp, Warning, "Owner of {0} is {1}", *GetNameSafe(this), *GetNameSafe(GetOwner()));
 	double Velocity = GetVelocity().Size();
 	// If dice is not rolling and is not on hold
 	if(Velocity < 1 && !bIsOnHold)
