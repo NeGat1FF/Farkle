@@ -53,12 +53,6 @@ ADiceActor::ADiceActor()
 	DiceMesh->SetSimulatePhysics(false);
 }
 
-// Called when the game starts or when spawned
-void ADiceActor::BeginPlay()
-{
-	Super::BeginPlay();
-}
-
 void ADiceActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
