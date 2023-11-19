@@ -87,7 +87,6 @@ void ABaseBoardPawn::RollDice_Implementation()
 	if (PlayState == EPlayState::EPS_WaitingForThrow)
 	{
 		ThrowDices(DiceArray);
-		// Set the player state to rolling
 	}
 	else if (PlayState == EPlayState::EPS_Selected)
 	{
@@ -145,9 +144,6 @@ void ABaseBoardPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLi
 	DOREPLIFETIME(ABaseBoardPawn, TotalScore);
 	DOREPLIFETIME(ABaseBoardPawn, TurnScore);
 	DOREPLIFETIME(ABaseBoardPawn, SelectedScore);
-
-	//DOREPLIFETIME(ABaseBoardPawn, bIsMyTurn);
-	//DOREPLIFETIME(ABaseBoardPawn, PlayState);
 
 	DOREPLIFETIME(ABaseBoardPawn, DiceArray);
 	DOREPLIFETIME(ABaseBoardPawn, OnHolderDices);
