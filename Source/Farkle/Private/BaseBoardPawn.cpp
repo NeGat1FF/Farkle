@@ -35,6 +35,12 @@ ABaseBoardPawn::ABaseBoardPawn()
 	SelectedScoreText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("SelectedScoreText"));
 	SelectedScoreText->SetupAttachment(RootComponent);
 
+	FromSphere = CreateDefaultSubobject<USphereComponent>(TEXT("FromSphere"));
+	FromSphere->SetupAttachment(BoardMesh);
+
+	ToSphere = CreateDefaultSubobject<USphereComponent>(TEXT("ToSphere"));
+	ToSphere->SetupAttachment(BoardMesh);
+
 	for (int i = 1; i <= 6; i++)
 	{
 		FString ComponentName = FString::Printf(TEXT("HolderPosition%d"), i);
@@ -236,11 +242,13 @@ void ABaseBoardPawn::ThrowDices(TArray<ADiceActor *> Dices)
 
 		// Set a random rotation to start
 		FVector RandomRotation = FVector(FMath::RandRange(-180.f, 180.f), FMath::RandRange(-180.f, 180.f), FMath::RandRange(-180.f, 180.f));
-		DiceMesh->AddLocalRotation(FQuat::MakeFromEuler(RandomRotation));
+		//DiceMesh->AddLocalRotation(FQuat::MakeFromEuler(RandomRotation));
 
 		// Apply a random force or torque to simulate a roll
 		float RandomForce = FMath::RandRange(-500.f, 500.f);
 		DiceMesh->AddForce(ThrowDirection * (4500.0f + RandomForce));
+		DiceMesh->AddAngularImpulseInDegrees(RandomRotation * (4500.0f + RandomForce));
+		//DiceMesh->AddForce(FVector{0,0,1} * (4500.0f + RandomForce));
 
 		MovementMonitor->AddActorToTrack(DiceActor);
 
@@ -399,8 +407,8 @@ void ABaseBoardPawn::SpawnDices()
 	OnHolderDices = DiceArray;
 
 	// Calculate the direction vector
-	ThrowDirection = (HolderPositions[0]->GetComponentLocation() - ThrowPositions[0]->GetComponentLocation()).GetSafeNormal();
-	ThrowDirection.Z = 0.0f;
+	ThrowDirection = (ToSphere->GetComponentLocation() - FromSphere->GetComponentLocation()).GetSafeNormal();
+	ThrowDirection.Z = -0.25f;
 
 	// round the numbers to 1 or -1
 	ThrowDirection.X = FMath::RoundToInt(ThrowDirection.X);

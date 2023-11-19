@@ -1,6 +1,5 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "FarkleGameMode.h"
 #include "BaseBoardPawn.h"
 
@@ -11,7 +10,8 @@ AFarkleGameMode::AFarkleGameMode()
 
 void AFarkleGameMode::SetTargetScore(int32 Score)
 {
-    if(Score > 0){
+    if (Score > 0)
+    {
         TargetScore = Score;
     }
 }
@@ -23,7 +23,8 @@ int32 AFarkleGameMode::GetTargetScore() const
 
 void AFarkleGameMode::BindEvents()
 {
-    if(FirstPlayer && SecondPlayer){
+    if (FirstPlayer && SecondPlayer)
+    {
         FirstPlayer->OnEndTurn.AddDynamic(this, &AFarkleGameMode::OnFirstPlayerEndTurn);
         SecondPlayer->OnEndTurn.AddDynamic(this, &AFarkleGameMode::OnSecondPlayerEndTurn);
 
@@ -36,7 +37,24 @@ void AFarkleGameMode::OnFirstPlayerEndTurn()
 {
     SecondPlayer->StartTurn();
 
-    if(FirstPlayer->GetTotalScore() >= TargetScore){
+    if (SecondPlayer->GetController())
+    {
+        if (Cast<APlayerController>(SecondPlayer->GetController()))
+        {
+            Cast<APlayerController>(SecondPlayer->GetController())->bEnableClickEvents = true;
+        }
+    }
+
+    if (FirstPlayer->GetController())
+    {
+        if (Cast<APlayerController>(FirstPlayer->GetController()))
+        {
+            Cast<APlayerController>(FirstPlayer->GetController())->bEnableClickEvents = false;
+        }
+    }
+
+    if (FirstPlayer->GetTotalScore() >= TargetScore)
+    {
         EndGame(FirstPlayer, SecondPlayer);
     }
 }
@@ -45,21 +63,40 @@ void AFarkleGameMode::OnSecondPlayerEndTurn()
 {
     FirstPlayer->StartTurn();
 
-    if(SecondPlayer->GetTotalScore() >= TargetScore){
+    if (FirstPlayer->GetController())
+    {
+        if (Cast<APlayerController>(FirstPlayer->GetController()))
+        {
+            Cast<APlayerController>(FirstPlayer->GetController())->bEnableClickEvents = true;
+        }
+    }
+
+    if (SecondPlayer->GetController())
+    {
+        if (Cast<APlayerController>(SecondPlayer->GetController()))
+        {
+            Cast<APlayerController>(SecondPlayer->GetController())->bEnableClickEvents = false;
+        }
+    }
+
+    if (SecondPlayer->GetTotalScore() >= TargetScore)
+    {
         EndGame(SecondPlayer, FirstPlayer);
     }
 }
 
 void AFarkleGameMode::SetFirstPlayer(ABaseBoardPawn *Pawn)
 {
-    if(Pawn){
+    if (Pawn)
+    {
         FirstPlayer = Pawn;
     }
 }
 
 void AFarkleGameMode::SetSecondPlayer(ABaseBoardPawn *Pawn)
 {
-    if(Pawn){
+    if (Pawn)
+    {
         SecondPlayer = Pawn;
     }
 }

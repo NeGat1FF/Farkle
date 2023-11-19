@@ -1,6 +1,5 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "DiceActor.h"
 #include "Net/UnrealNetwork.h"
 #include "DiceSphereComponent.h"
@@ -11,7 +10,7 @@
 // Sets default values
 ADiceActor::ADiceActor()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 
 	DiceMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DiceMesh"));
@@ -30,10 +29,10 @@ ADiceActor::ADiceActor()
 
 	TransformToComponent = CreateDefaultSubobject<UTransformToComponent>(TEXT("TransformToComponent"));
 
-	for(int i = 1; i <= 6; i++)
+	for (int i = 1; i <= 6; i++)
 	{
 		FString ComponentName = FString::Printf(TEXT("DiceFace%d"), i);
-		UDiceSphereComponent* DiceFace = CreateDefaultSubobject<UDiceSphereComponent>(*ComponentName);
+		UDiceSphereComponent *DiceFace = CreateDefaultSubobject<UDiceSphereComponent>(*ComponentName);
 		DiceFace->SetupAttachment(DiceMesh);
 		DiceFace->SetValue(i);
 
@@ -63,13 +62,14 @@ void ADiceActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifeti
 
 void ADiceActor::NotifyActorBeginOverlap(AActor *OtherActor)
 {
-	if(ADiceActor* Dice = Cast<ADiceActor>(OtherActor))
+	if (ADiceActor *Dice = Cast<ADiceActor>(OtherActor))
 	{
 		return;
 	}
 	bIsOverlapping = true;
 
-	if(GetVelocity().Size() > 0){
+	if (GetVelocity().Size() > 0)
+	{
 		bIsRolling = true;
 	}
 
@@ -78,7 +78,7 @@ void ADiceActor::NotifyActorBeginOverlap(AActor *OtherActor)
 
 void ADiceActor::NotifyActorEndOverlap(AActor *OtherActor)
 {
-	if(ADiceActor* Dice = Cast<ADiceActor>(OtherActor))
+	if (ADiceActor *Dice = Cast<ADiceActor>(OtherActor))
 	{
 		return;
 	}
@@ -87,11 +87,11 @@ void ADiceActor::NotifyActorEndOverlap(AActor *OtherActor)
 
 void ADiceActor::NotifyHit(UPrimitiveComponent *MyComp, AActor *Other, UPrimitiveComponent *OtherComp, bool bSelfMoved, FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult &Hit)
 {
-	if(ADiceActor* Dice = Cast<ADiceActor>(Other))
+	if (ADiceActor *Dice = Cast<ADiceActor>(Other))
 	{
 		return;
 	}
-	if(!bIsOnHold && !HitSound->IsPlaying())
+	if (!bIsOnHold && !HitSound->IsPlaying())
 	{
 		HitSound->Play();
 	}
@@ -101,7 +101,7 @@ void ADiceActor::Select(bool shouldPlaySound)
 {
 	SetSelected(true);
 
-	if(shouldPlaySound)
+	if (shouldPlaySound)
 	{
 		SelectSound->Play();
 	}
@@ -111,20 +111,25 @@ void ADiceActor::Deselect(bool shouldPlaySound)
 {
 	SetSelected(false);
 
-	if(shouldPlaySound)
+	if (shouldPlaySound)
 	{
 		SelectSound->Play();
 	}
 }
 
-void ADiceActor::OnClick(AActor* actor, FKey Key)
+void ADiceActor::OnClick(AActor *actor, FKey Key)
 {
 	double Velocity = GetVelocity().Size();
 	// If dice is not rolling and is not on hold
-	if(Velocity < 1 && !bIsOnHold)
+	if (Velocity < 1 && !bIsOnHold)
 	{
 		// If dice is selected, deselect it
 		bIsSelected ? Deselect() : Select();
+	}
+
+	// Log actor name
+	if(GetOwner()){
+		UE_LOG(LogTemp, Warning, TEXT("Actor name: %s"), *actor->GetName());
 	}
 }
 
@@ -135,13 +140,14 @@ void ADiceActor::TransformTo(FVector NewTargetPosition, FRotator NewTargetRotati
 
 void ADiceActor::PlayRollingSound()
 {
-	if(GetVelocity().Size() == 0){
+	if (GetVelocity().Size() == 0)
+	{
 		bIsRolling = false;
 		RollingSound->Stop();
 		return;
 	}
 
-	if(bIsRolling && bIsOverlapping && !RollingSound->IsPlaying() && DiceMesh->IsSimulatingPhysics())
+	if (bIsRolling && bIsOverlapping && !RollingSound->IsPlaying() && DiceMesh->IsSimulatingPhysics())
 	{
 		RollingSound->Play();
 	}
@@ -149,14 +155,16 @@ void ADiceActor::PlayRollingSound()
 
 void ADiceActor::SetSelected(bool NewIsSelected)
 {
-	if(GetLocalRole() < ROLE_Authority){
+	if (GetLocalRole() < ROLE_Authority)
+	{
 		ServerSetSelected(NewIsSelected);
 		return;
 	}
 	MulticastSetSelected(NewIsSelected);
 }
 
-void ADiceActor::ServerSetSelected_Implementation(bool NewIsSelected){
+void ADiceActor::ServerSetSelected_Implementation(bool NewIsSelected)
+{
 	SetSelected(NewIsSelected);
 }
 
@@ -169,7 +177,8 @@ void ADiceActor::MulticastSetSelected_Implementation(bool NewIsSelected)
 
 void ADiceActor::UpdateValue(UPrimitiveComponent *OverlappedComp, AActor *OtherActor, UPrimitiveComponent *OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult &SweepResult)
 {
-	if(ADiceActor* Dice = Cast<ADiceActor>(OtherActor)){
+	if (ADiceActor *Dice = Cast<ADiceActor>(OtherActor))
+	{
 		return;
 	}
 	Value = Cast<UDiceSphereComponent>(OverlappedComp)->GetValue();

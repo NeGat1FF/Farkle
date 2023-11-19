@@ -48,6 +48,12 @@ public:
 	UStaticMeshComponent *BoardMesh;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Components)
+	USphereComponent *FromSphere;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Components)
+	USphereComponent *ToSphere;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Components)
 	TArray<USphereComponent *> HolderPositions;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Components)
