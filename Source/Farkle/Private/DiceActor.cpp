@@ -126,11 +126,6 @@ void ADiceActor::OnClick(AActor *actor, FKey Key)
 		// If dice is selected, deselect it
 		bIsSelected ? Deselect() : Select();
 	}
-
-	// Log actor name
-	if(GetOwner()){
-		UE_LOG(LogTemp, Warning, TEXT("Actor name: %s"), *actor->GetName());
-	}
 }
 
 void ADiceActor::TransformTo(FVector NewTargetPosition, FRotator NewTargetRotation, float NewTransitionDuration)
