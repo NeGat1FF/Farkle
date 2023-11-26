@@ -8,6 +8,8 @@ void AFarkleLocalMPGameMode::OnFirstPlayerEndTurn()
 {
     Super::OnFirstPlayerEndTurn();
 
+    ToggleClickEvents(GetFirstPlayer(), true);
+
     Cast<APlayerController>(GetFirstPlayer()->GetController())->SetViewTargetWithBlend(GetSecondPlayer(), 2.0f, EViewTargetBlendFunction::VTBlend_Cubic);
 }
 

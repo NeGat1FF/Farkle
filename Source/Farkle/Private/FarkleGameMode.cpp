@@ -33,25 +33,24 @@ void AFarkleGameMode::BindEvents()
     }
 }
 
+void AFarkleGameMode::ToggleClickEvents(ABaseBoardPawn *Player, bool bEnable)
+{
+    if (AController* Controller = Player->GetController())
+    {
+        if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+        {
+            PlayerController->bEnableClickEvents = bEnable;
+        }
+    }
+}
+
 void AFarkleGameMode::OnFirstPlayerEndTurn()
 {
     SecondPlayer->StartTurn();
 
-    if (SecondPlayer->GetController())
-    {
-        if (Cast<APlayerController>(SecondPlayer->GetController()))
-        {
-            Cast<APlayerController>(SecondPlayer->GetController())->bEnableClickEvents = true;
-        }
-    }
+    ToggleClickEvents(FirstPlayer, false);
 
-    if (FirstPlayer->GetController())
-    {
-        if (Cast<APlayerController>(FirstPlayer->GetController()))
-        {
-            Cast<APlayerController>(FirstPlayer->GetController())->bEnableClickEvents = false;
-        }
-    }
+    ToggleClickEvents(SecondPlayer, true);
 
     if (FirstPlayer->GetTotalScore() >= TargetScore)
     {
@@ -63,21 +62,9 @@ void AFarkleGameMode::OnSecondPlayerEndTurn()
 {
     FirstPlayer->StartTurn();
 
-    if (FirstPlayer->GetController())
-    {
-        if (Cast<APlayerController>(FirstPlayer->GetController()))
-        {
-            Cast<APlayerController>(FirstPlayer->GetController())->bEnableClickEvents = true;
-        }
-    }
+    ToggleClickEvents(FirstPlayer, true);
 
-    if (SecondPlayer->GetController())
-    {
-        if (Cast<APlayerController>(SecondPlayer->GetController()))
-        {
-            Cast<APlayerController>(SecondPlayer->GetController())->bEnableClickEvents = false;
-        }
-    }
+    ToggleClickEvents(SecondPlayer, false);
 
     if (SecondPlayer->GetTotalScore() >= TargetScore)
     {

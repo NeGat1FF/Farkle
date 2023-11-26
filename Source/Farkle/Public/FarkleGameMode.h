@@ -37,6 +37,9 @@ protected:
 	virtual void BindEvents();
 
 	UFUNCTION()
+	void ToggleClickEvents(ABaseBoardPawn* Player, bool bEnable);
+
+	UFUNCTION()
 	virtual void OnFirstPlayerEndTurn();
 
 	UFUNCTION()
