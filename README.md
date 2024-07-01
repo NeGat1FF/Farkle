@@ -16,6 +16,10 @@ Farkle is a tabletop dice game developed using Unreal Engine 5, inspired by the 
 - DirectX 12 compatible graphics card
 - Unreal Engine 5
 
+## Images
+![image](https://github.com/NeGat1FF/Farkle/assets/45542040/289d77c5-7400-4094-b4ba-5dec32ce9d40)
+
+
 ### Installation
 1. Download the game zip from the [releases page](https://github.com/NeGat1FF/Farkle/releases/tag/V0.0.1).
 2. Unzip game in any folder.
